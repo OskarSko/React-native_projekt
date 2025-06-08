@@ -18,6 +18,8 @@ import AddTaskScreen from "./screens/AddTaskScreen";
 import TaskDetailsScreen from "./screens/TaskDetailsScreen";
 import ProjectManagerScreen from "./screens/ProjectManagerScreen";
 import StatsScreen from "./screens/StatsScreen";
+import AuthScreen from './screens/AuthScreen';
+
 
 
 const Stack = createStackNavigator();
