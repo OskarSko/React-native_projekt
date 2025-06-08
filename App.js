@@ -37,15 +37,13 @@ export default function App() {
   const [labelsInput, setLabelsInput] = useState("");
   const [user, setUser] = useState(null);
 
-  const handleAddTask = async (taskData) => {
-    await addTask({
-      ...taskData,
-      projectId: selectedProject,
-      createdAt: new Date().toISOString(),
-      userId: user?.uid,
-      labels: taskData.labelsInput.split(",").map((l) => l.trim()).filter((l) => l !== ""),
-    });
-  };
+const handleAddTask = async (taskData) => {
+  await addTask({
+    ...taskData,
+    createdAt: new Date().toISOString(),
+    labels: taskData.labelsInput.split(",").map((l) => l.trim()).filter((l) => l !== ""),
+  });
+};
 
   const loadProjects = async () => {
     if (!user) return;
@@ -161,6 +159,7 @@ export default function App() {
                 setSelectedProject,
                 projects,
                 handleAddTask,
+                userId: user.uid,
               })
             }
           >

@@ -1,7 +1,7 @@
 // firebase/firestoreService.js
 import { collection, addDoc, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "./firebaseConfig";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { query, where } from "firebase/firestore";
 // Zadania – bez zmian
 export const addTask = async (task) => {
@@ -18,17 +18,20 @@ export const subscribeToTasks = (callback) => {
   });
 };
 
-export const addProject = async (name) => {
+export const addProject = async (name, userId) => {
   const ref = await addDoc(collection(db, "projects"), {
     name,
     archived: false,
     createdAt: new Date().toISOString(),
+    userId, // 🔴 WAŻNE
   });
   return ref.id;
 };
 
-export const getProjects = async (includeArchived = false) => {
-  const snapshot = await getDocs(collection(db, "projects"));
+
+export const getProjects = async (includeArchived = false, userId) => {
+  const q = query(collection(db, "projects"), where("userId", "==", userId));
+  const snapshot = await getDocs(q);
   const all = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   return includeArchived ? all : all.filter((p) => !p.archived);
 };

@@ -3,7 +3,8 @@ import { View, StyleSheet, SafeAreaView, ScrollView } from "react-native";
 import TaskForm from "../components/TaskForm";
 import dayjs from "dayjs";
 export default function AddTaskScreen({ navigation, route }) {
-  const { handleAddTask } = route.params;
+  const { handleAddTask, selectedProject,
+  userId, } = route.params;
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -32,6 +33,8 @@ export default function AddTaskScreen({ navigation, route }) {
               dueDate,
               priority,
               labelsInput,
+              projectId: selectedProject,
+              userId: userId,
             });
             navigation.goBack();
           }}

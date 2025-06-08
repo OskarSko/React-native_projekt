@@ -15,12 +15,13 @@ import {
   toggleProjectArchived,
 } from "../firebase/firestoreService";
 
-export default function ProjectManagerScreen({ navigation }) {
+export default function ProjectManagerScreen({ navigation, route }) {
+    const { userId } = route.params;
   const [projects, setProjects] = useState([]);
   const [newName, setNewName] = useState("");
 
   const loadProjects = async () => {
-    const data = await getProjects(true); // true = pobierz także zarchiwizowane
+    const data = await getProjects(true, userId);
     setProjects(data);
   };
 
@@ -30,29 +31,35 @@ export default function ProjectManagerScreen({ navigation }) {
 
   const handleAdd = async () => {
     if (newName.trim()) {
-      await addProject(newName.trim());
+      await addProject(newName.trim(), userId);
       setNewName("");
       loadProjects();
     }
   };
 
-  const handleDelete = async (id) => {
-    Alert.alert("Potwierdzenie", "Czy na pewno usunąć projekt?", [
-      { text: "Anuluj" },
-      {
-        text: "Usuń",
-        onPress: async () => {
+const handleDelete = async (id) => {
+  Alert.alert("Potwierdzenie", "Czy na pewno usunąć projekt?", [
+    { text: "Anuluj", style: "cancel" },
+    {
+      text: "Usuń",
+      style: "destructive",
+      onPress: async () => {
+        try {
           await deleteProject(id);
-          loadProjects();
-        },
+          await loadProjects();
+        } catch (error) {
+          console.error("❌ Błąd przy usuwaniu:", error);
+          Alert.alert("Błąd", "Nie udało się usunąć projektu:\n" + error.message);
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
 
-  const handleToggleArchived = async (id, current) => {
-    await toggleProjectArchived(id, !current);
-    loadProjects();
-  };
+const handleToggleArchived = async (id, current) => {
+  await toggleProjectArchived(id, !current);
+  await loadProjects(); // ✅ dodaj await!
+};
 
   return (
     <View style={styles.container}>
