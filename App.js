@@ -16,6 +16,8 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import AddTaskScreen from "./screens/AddTaskScreen";
 import TaskDetailsScreen from "./screens/TaskDetailsScreen";
+import ProjectManagerScreen from "./screens/ProjectManagerScreen";
+import StatsScreen from "./screens/StatsScreen";
 
 
 const Stack = createStackNavigator();
@@ -33,6 +35,7 @@ export default function App() {
 const handleAddTask = async (taskData) => {
   await addTask({
     ...taskData,
+    projectId: selectedProject, // ✅ przypisanie projektu
     createdAt: new Date().toISOString(),
     labels: taskData.labelsInput
       .split(",")
@@ -41,9 +44,23 @@ const handleAddTask = async (taskData) => {
   });
 };
 
+const handleAddProject = async () => {
+  const name = prompt("Podaj nazwę projektu:");
+  if (name) {
+    try {
+      const id = await addProject(name);
+      await loadProjects();
+      setSelectedProject(id);
+    } catch (error) {
+      console.error("Błąd dodawania projektu:", error);
+    }
+  }
+};
+
+
 
   const loadProjects = async () => {
-    const data = await getProjects();
+    const data = await getProjects(false); // tylko aktywne
     setProjects(data);
     if (data.length > 0 && !selectedProject) setSelectedProject(data[0].id);
   };
@@ -61,23 +78,72 @@ const handleAddTask = async (taskData) => {
     const today = dayjs().format("YYYY-MM-DD");
     const in7Days = dayjs().add(7, "day").format("YYYY-MM-DD");
 
+    let filtered = tasks;
+
+    if (selectedProject) {
+      filtered = filtered.filter((t) => t.projectId === selectedProject);
+    }
+
     switch (selectedView) {
       case "today":
-        return tasks.filter((t) => t.dueDate === today);
+        return filtered.filter((t) => t.dueDate === today);
       case "upcoming":
-        return tasks.filter((t) => t.dueDate > today && t.dueDate <= in7Days);
+        return filtered.filter((t) => t.dueDate > today && t.dueDate <= in7Days && !t.done);
       case "important":
-        return tasks.filter((t) => t.priority === "wysoki");
+        return filtered.filter((t) => t.priority === "wysoki" && !t.done);
       case "overdue":
-        return tasks.filter((t) => t.dueDate && t.dueDate < today);
+        return filtered.filter((t) => t.dueDate && t.dueDate < today && !t.done);
+      case "done":
+        return filtered.filter((t) => t.done);
       default:
-        return tasks;
+        return filtered;
     }
   };
 
   const MainScreen = ({ navigation }) => (
     <View style={styles.container}>
       {/* Górna sekcja: nagłówek i przycisk ➕ */}
+
+      <TouchableOpacity
+        onPress={() => navigation.navigate("Statystyki")}
+        style={[styles.addButton, { marginLeft: 10 }]}
+      >
+        <Text style={styles.addButtonText}>📊</Text>
+      </TouchableOpacity>
+
+          <Text style={styles.subheading}>Projekt:</Text>
+    <View style={styles.buttonRow}>
+      <TouchableOpacity
+        onPress={() => setSelectedProject(null)}
+        style={[
+          styles.button,
+          selectedProject === null && styles.buttonSelected,
+        ]}
+      >
+        <Text style={styles.buttonText}>Wszystkie</Text>
+      </TouchableOpacity>
+
+      {projects.map((project) => (
+        <TouchableOpacity
+          key={project.id}
+          onPress={() => setSelectedProject(project.id)}
+          style={[
+            styles.button,
+            selectedProject === project.id && styles.buttonSelected,
+          ]}
+        >
+          <Text style={styles.buttonText}>{project.name}</Text>
+        </TouchableOpacity>
+      ))}
+
+      <TouchableOpacity
+        onPress={() => navigation.navigate("Edytuj projekty")}
+        style={styles.addProjectButton}
+      >
+        <Text style={styles.addProjectText}>Edytuj</Text>
+      </TouchableOpacity>
+    </View>
+
       <View style={styles.headerRow}>
         <Text style={styles.heading}>Lista zadań</Text>
         <TouchableOpacity
@@ -111,6 +177,7 @@ const handleAddTask = async (taskData) => {
           { id: "upcoming", label: "Nadchodzące" },
           { id: "important", label: "Ważne" },
           { id: "overdue", label: "Zaległe" },
+          { id: "done", label: "Ukończone" },
         ].map((view) => (
           <TouchableOpacity
             key={view.id}
@@ -135,6 +202,8 @@ const handleAddTask = async (taskData) => {
         <Stack.Screen name="Lista zadań" component={MainScreen} />
         <Stack.Screen name="Dodaj zadanie" component={AddTaskScreen} />
         <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} />
+        <Stack.Screen name="Edytuj projekty" component={ProjectManagerScreen} />
+        <Stack.Screen name="Statystyki" component={StatsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -181,4 +250,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
   },
+  addProjectButton: {
+  backgroundColor: "#007AFF",
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  borderRadius: 6,
+  marginLeft: 10,
+  },
+  addProjectText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+
 });

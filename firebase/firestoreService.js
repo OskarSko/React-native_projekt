@@ -18,18 +18,29 @@ export const subscribeToTasks = (callback) => {
   });
 };
 
-// Projekty
-export const addProject = async (project) => {
-  await addDoc(collection(db, "projects"), project);
+export const addProject = async (name) => {
+  const ref = await addDoc(collection(db, "projects"), {
+    name,
+    archived: false,
+    createdAt: new Date().toISOString(),
+  });
+  return ref.id;
 };
 
-export const getProjects = async () => {
+export const getProjects = async (includeArchived = false) => {
   const snapshot = await getDocs(collection(db, "projects"));
-  const projects = [];
-  snapshot.forEach((doc) => {
-    projects.push({ id: doc.id, ...doc.data() });
+  const all = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  return includeArchived ? all : all.filter((p) => !p.archived);
+};
+
+export const deleteProject = async (id) => {
+  await deleteDoc(doc(db, "projects", id));
+};
+
+export const toggleProjectArchived = async (id, newValue) => {
+  await updateDoc(doc(db, "projects", id), {
+    archived: newValue,
   });
-  return projects;
 };
 
 export const toggleTaskDone = async (taskId, currentState) => {
@@ -41,4 +52,9 @@ export const toggleTaskDone = async (taskId, currentState) => {
   } catch (error) {
     console.error("Błąd przy aktualizacji zadania:", error);
   }
+};
+
+export const getTasks = async () => {
+  const snapshot = await getDocs(collection(db, "tasks"));
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 };
