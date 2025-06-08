@@ -35,8 +35,8 @@ export default function App() {
 const handleAddTask = async (taskData) => {
   await addTask({
     ...taskData,
-    projectId: selectedProject, // ✅ przypisanie projektu
-    createdAt: new Date().toISOString(),
+    projectId: selectedProject,
+    createdAt: new Date().toISOString(), // ✅ to jest kluczowe
     labels: taskData.labelsInput
       .split(",")
       .map((l) => l.trim())

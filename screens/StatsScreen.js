@@ -1,66 +1,93 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, ScrollView, StyleSheet } from "react-native";
-import { getTasks } from "../firebase/firestoreService";
-import dayjs from "dayjs";
-import isoWeek from "dayjs/plugin/isoWeek";
-import weekday from "dayjs/plugin/weekday";
+import React, { useEffect, useState } from 'react';
+import { View, Text, Dimensions, ScrollView } from 'react-native';
+import { BarChart, PieChart } from 'react-native-chart-kit';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase/firebaseConfig';
 
-dayjs.extend(isoWeek);
-dayjs.extend(weekday);
+const screenWidth = Dimensions.get('window').width;
 
-export default function StatsScreen() {
-  const [completedThisWeek, setCompletedThisWeek] = useState([]);
-  const [summaryText, setSummaryText] = useState("");
+const StatsScreen = () => {
+  const [barData, setBarData] = useState([0, 0, 0, 0, 0, 0, 0]); // Mon–Sun
+  const [pieData, setPieData] = useState([
+    { name: "Ukończone", count: 0, color: "#4CAF50", legendFontColor: "#333", legendFontSize: 14 },
+    { name: "Nieukończone", count: 0, color: "#F44336", legendFontColor: "#333", legendFontSize: 14 },
+  ]);
+  const [trendText, setTrendText] = useState("");
 
   useEffect(() => {
-    const load = async () => {
-      const allTasks = await getTasks(); // musisz zaimplementować getTasks()
-      const completed = allTasks.filter((t) => t.done && t.completedAt);
+    const fetchTasks = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'tasks'));
+        const tasks = querySnapshot.docs.map(doc => doc.data());
 
-      // tylko ten tydzień
-      const start = dayjs().startOf("isoWeek");
-      const end = dayjs().endOf("isoWeek");
+        // Zadania na dzień tygodnia (0–6: Mon–Sun)
+        const weekCounts = [0, 0, 0, 0, 0, 0, 0];
 
-      const thisWeek = completed.filter((t) =>
-        dayjs(t.completedAt).isBetween(start, end, null, "[]")
-      );
+        let doneCount = 0;
+        let notDoneCount = 0;
 
-      // grupuj wg dni tygodnia
-      const dayCounts = Array(7).fill(0);
-      thisWeek.forEach((task) => {
-        const day = dayjs(task.completedAt).day(); // 0=niedziela, 1=poniedziałek
-        dayCounts[day] += 1;
-      });
+        tasks.forEach(task => {
+          if (task.done) {
+            doneCount++;
+            if (task.completedAt?.seconds) {
+              const date = new Date(task.completedAt.seconds * 1000);
+              const day = (date.getDay() + 6) % 7; // przestawienie niedzieli na koniec
+              weekCounts[day]++;
+            }
+          } else {
+            notDoneCount++;
+          }
+        });
 
-      const names = ["Nd", "Pn", "Wt", "Śr", "Czw", "Pt", "Sb"];
-      setCompletedThisWeek(
-        dayCounts.map((count, idx) => ({ day: names[idx], count }))
-      );
+        setBarData(weekCounts);
 
-      const maxDay = dayCounts.indexOf(Math.max(...dayCounts));
-      setSummaryText(
-        `W tym tygodniu najwięcej zadań ukończyłeś w: ${names[maxDay]}`
-      );
+        setPieData([
+          { name: "Ukończone", count: doneCount, color: "#4CAF50", legendFontColor: "#333", legendFontSize: 14 },
+          { name: "Nieukończone", count: notDoneCount, color: "#F44336", legendFontColor: "#333", legendFontSize: 14 },
+        ]);
+      } catch (error) {
+        console.error("Błąd pobierania zadań:", error);
+      }
     };
 
-    load();
+    fetchTasks();
   }, []);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Statystyki tygodniowe</Text>
-      {completedThisWeek.map((d) => (
-        <Text key={d.day}>
-          {d.day}: {d.count} zadań
-        </Text>
-      ))}
-      <Text style={styles.summary}>{summaryText}</Text>
+    <ScrollView style={{ padding: 20 }}>
+      <Text style={{ fontSize: 18, fontWeight: 'bold' }}>📊 Zadania wg dni tygodnia</Text>
+      <BarChart
+        data={{
+          labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+          datasets: [{ data: barData }]
+        }}
+        width={screenWidth - 40}
+        height={220}
+        chartConfig={{
+          backgroundGradientFrom: "#fff",
+          backgroundGradientTo: "#fff",
+          decimalPlaces: 0,
+          color: (opacity = 1) => `rgba(66, 135, 245, ${opacity})`,
+          labelColor: () => "#000"
+        }}
+        fromZero
+        showValuesOnTopOfBars
+        style={{ marginVertical: 10 }}
+      />
+
+      <Text style={{ fontSize: 18, fontWeight: 'bold', marginTop: 20 }}>🥧 Procent ukończonych zadań</Text>
+      <PieChart
+        data={pieData}
+        width={screenWidth - 40}
+        height={200}
+        chartConfig={{ color: () => `#000` }}
+        accessor="count"
+        backgroundColor="transparent"
+        paddingLeft="15"
+        absolute
+      />
     </ScrollView>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: { padding: 20 },
-  heading: { fontSize: 20, fontWeight: "bold", marginBottom: 15 },
-  summary: { marginTop: 20, fontStyle: "italic", color: "#007AFF" },
-});
+export default StatsScreen;

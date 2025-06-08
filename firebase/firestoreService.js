@@ -44,15 +44,13 @@ export const toggleProjectArchived = async (id, newValue) => {
 };
 
 export const toggleTaskDone = async (taskId, currentState) => {
-  try {
-    const ref = doc(db, "tasks", taskId);
-    await updateDoc(ref, {
-      done: !currentState,
-    });
-  } catch (error) {
-    console.error("Błąd przy aktualizacji zadania:", error);
-  }
+  const ref = doc(db, "tasks", taskId);
+  await updateDoc(ref, {
+    done: !currentState,
+    completedAt: !currentState ? new Date() : null,
+  });
 };
+
 
 export const getTasks = async () => {
   const snapshot = await getDocs(collection(db, "tasks"));

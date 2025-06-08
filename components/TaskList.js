@@ -8,19 +8,15 @@ import {
 } from "react-native";
 import { toggleTaskDone } from "../firebase/firestoreService";
 
+
 export default function TaskList({ tasks, getProjectName }) {
   return (
     <FlatList
       data={tasks}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
-        <TouchableOpacity
-          onPress={() => toggleTaskDone(item.id, item.done)}
-          style={{
-            marginVertical: 6,
-            opacity: item.done ? 0.5 : 1,
-          }}
-        >
+<TouchableOpacity onPress={() => toggleTaskDone(item.id, item.done)}>
+
           <Text
             style={[
               { fontSize: 16 },
