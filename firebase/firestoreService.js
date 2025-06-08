@@ -2,7 +2,7 @@
 import { collection, addDoc, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import { doc, updateDoc } from "firebase/firestore";
-
+import { query, where } from "firebase/firestore";
 // Zadania – bez zmian
 export const addTask = async (task) => {
   await addDoc(collection(db, "tasks"), task);

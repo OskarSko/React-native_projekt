@@ -1,54 +1,104 @@
-import React, { useState } from 'react';
-import { View, TextInput, Button, Text, Alert } from 'react-native';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase/firebaseConfig';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from "react-native";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { auth } from "../firebase/firebaseConfig";
 
 const AuthScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const register = async () => {
+  const handleRegister = async () => {
+    if (password.length < 6) {
+      Alert.alert("Błąd", "Hasło musi mieć co najmniej 6 znaków.");
+      return;
+    }
+
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      Alert.alert("Sukces", "Zarejestrowano!");
+      //navigation.replace("Lista zadań");
     } catch (error) {
-      Alert.alert("Błąd", error.message);
+      Alert.alert("Błąd rejestracji", error.message);
     }
   };
 
-  const login = async () => {
+  const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigation.replace("Home"); // przejście do głównego ekranu
+      //navigation.replace("Lista zadań");
     } catch (error) {
       Alert.alert("Błąd logowania", error.message);
     }
   };
 
   return (
-    <View style={{ padding: 20 }}>
-      <Text>Email</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Zaloguj się lub zarejestruj</Text>
+
       <TextInput
+        placeholder="Email"
+        style={styles.input}
         value={email}
         onChangeText={setEmail}
-        keyboardType="email-address"
         autoCapitalize="none"
-        style={{ borderBottomWidth: 1, marginBottom: 10 }}
+        keyboardType="email-address"
       />
 
-      <Text>Hasło</Text>
       <TextInput
+        placeholder="Hasło"
+        style={styles.input}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        style={{ borderBottomWidth: 1, marginBottom: 20 }}
       />
 
-      <Button title="Zaloguj się" onPress={login} />
-      <View style={{ marginTop: 10 }} />
-      <Button title="Zarejestruj się" onPress={register} />
+      <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <Text style={styles.buttonText}>Zaloguj się</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, styles.secondaryButton]}
+        onPress={handleRegister}
+      >
+        <Text style={styles.buttonText}>Zarejestruj się</Text>
+      </TouchableOpacity>
     </View>
   );
 };
 
 export default AuthScreen;
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: "center", padding: 30 },
+  title: { fontSize: 22, fontWeight: "bold", marginBottom: 30 },
+  input: {
+    borderBottomWidth: 1,
+    borderColor: "#999",
+    marginBottom: 20,
+    paddingVertical: 8,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: "#007AFF",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: "center",
+  },
+  secondaryButton: {
+    backgroundColor: "#444",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+});

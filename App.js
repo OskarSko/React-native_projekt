@@ -1,9 +1,11 @@
+// App.js
 import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
+  SafeAreaView,
 } from "react-native";
 import TaskList from "./components/TaskList";
 import {
@@ -19,8 +21,8 @@ import TaskDetailsScreen from "./screens/TaskDetailsScreen";
 import ProjectManagerScreen from "./screens/ProjectManagerScreen";
 import StatsScreen from "./screens/StatsScreen";
 import AuthScreen from './screens/AuthScreen';
-
-
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "./firebase/firebaseConfig";
 
 const Stack = createStackNavigator();
 
@@ -33,45 +35,41 @@ export default function App() {
   const [priority, setPriority] = useState("średni");
   const [selectedView, setSelectedView] = useState("all");
   const [labelsInput, setLabelsInput] = useState("");
+  const [user, setUser] = useState(null);
 
-const handleAddTask = async (taskData) => {
-  await addTask({
-    ...taskData,
-    projectId: selectedProject,
-    createdAt: new Date().toISOString(), // ✅ to jest kluczowe
-    labels: taskData.labelsInput
-      .split(",")
-      .map((l) => l.trim())
-      .filter((l) => l !== ""),
-  });
-};
-
-const handleAddProject = async () => {
-  const name = prompt("Podaj nazwę projektu:");
-  if (name) {
-    try {
-      const id = await addProject(name);
-      await loadProjects();
-      setSelectedProject(id);
-    } catch (error) {
-      console.error("Błąd dodawania projektu:", error);
-    }
-  }
-};
-
-
+  const handleAddTask = async (taskData) => {
+    await addTask({
+      ...taskData,
+      projectId: selectedProject,
+      createdAt: new Date().toISOString(),
+      userId: user?.uid,
+      labels: taskData.labelsInput.split(",").map((l) => l.trim()).filter((l) => l !== ""),
+    });
+  };
 
   const loadProjects = async () => {
-    const data = await getProjects(false); // tylko aktywne
+    if (!user) return;
+    const data = await getProjects(false, user.uid);
     setProjects(data);
     if (data.length > 0 && !selectedProject) setSelectedProject(data[0].id);
   };
 
   useEffect(() => {
-    const unsubscribe = subscribeToTasks(setTasks);
-    loadProjects();
-    return () => unsubscribe();
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+    return () => unsubscribeAuth();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadProjects();
+      const unsubscribeTasks = subscribeToTasks((fetchedTasks) => {
+        setTasks(fetchedTasks.filter((t) => t.userId === user.uid));
+      }, user.uid);
+      return () => unsubscribeTasks();
+    }
+  }, [user]);
 
   const getProjectName = (projectId) =>
     projects.find((p) => p.id === projectId)?.name || "Nieznany";
@@ -79,13 +77,10 @@ const handleAddProject = async () => {
   const filterTasks = (tasks) => {
     const today = dayjs().format("YYYY-MM-DD");
     const in7Days = dayjs().add(7, "day").format("YYYY-MM-DD");
-
     let filtered = tasks;
-
     if (selectedProject) {
       filtered = filtered.filter((t) => t.projectId === selectedProject);
     }
-
     switch (selectedView) {
       case "today":
         return filtered.filter((t) => t.dueDate === today);
@@ -104,112 +99,114 @@ const handleAddProject = async () => {
 
   const MainScreen = ({ navigation }) => (
     <View style={styles.container}>
-      {/* Górna sekcja: nagłówek i przycisk ➕ */}
-
-      <TouchableOpacity
-        onPress={() => navigation.navigate("Statystyki")}
-        style={[styles.addButton, { marginLeft: 10 }]}
-      >
-        <Text style={styles.addButtonText}>📊</Text>
-      </TouchableOpacity>
-
-          <Text style={styles.subheading}>Projekt:</Text>
-    <View style={styles.buttonRow}>
-      <TouchableOpacity
-        onPress={() => setSelectedProject(null)}
-        style={[
-          styles.button,
-          selectedProject === null && styles.buttonSelected,
-        ]}
-      >
-        <Text style={styles.buttonText}>Wszystkie</Text>
-      </TouchableOpacity>
-
-      {projects.map((project) => (
-        <TouchableOpacity
-          key={project.id}
-          onPress={() => setSelectedProject(project.id)}
-          style={[
-            styles.button,
-            selectedProject === project.id && styles.buttonSelected,
-          ]}
-        >
-          <Text style={styles.buttonText}>{project.name}</Text>
-        </TouchableOpacity>
-      ))}
-
-      <TouchableOpacity
-        onPress={() => navigation.navigate("Edytuj projekty")}
-        style={styles.addProjectButton}
-      >
-        <Text style={styles.addProjectText}>Edytuj</Text>
-      </TouchableOpacity>
-    </View>
-
-      <View style={styles.headerRow}>
-        <Text style={styles.heading}>Lista zadań</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() =>
-            navigation.navigate("Dodaj zadanie", {
-              newTaskTitle,
-              setNewTaskTitle,
-              dueDate,
-              setDueDate,
-              priority,
-              setPriority,
-              labelsInput,
-              setLabelsInput,
-              selectedProject,
-              setSelectedProject,
-              projects,
-              handleAddTask,
-            })
-          }
-        >
-          <Text style={styles.addButtonText}>➕</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.subheading}>Widok:</Text>
-      <View style={styles.buttonRow}>
-        {[
-          { id: "all", label: "Wszystkie" },
-          { id: "today", label: "Dzisiaj" },
-          { id: "upcoming", label: "Nadchodzące" },
-          { id: "important", label: "Ważne" },
-          { id: "overdue", label: "Zaległe" },
-          { id: "done", label: "Ukończone" },
-        ].map((view) => (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.topRow}>
           <TouchableOpacity
-            key={view.id}
-            onPress={() => setSelectedView(view.id)}
-            style={[
-              styles.button,
-              selectedView === view.id && styles.buttonSelected,
-            ]}
+            onPress={() => navigation.navigate("Statystyki", { userId: user.uid })}
+            style={styles.statsButton}
           >
-            <Text style={styles.buttonText}>{view.label}</Text>
+            <Text style={styles.statsIcon}>📊</Text>
           </TouchableOpacity>
-        ))}
-      </View>
 
-      <TaskList tasks={filterTasks(tasks)} getProjectName={getProjectName} />
+          <Text style={styles.heading}>Lista zadań</Text>
+
+          <TouchableOpacity
+            onPress={() => signOut(auth)}
+            style={styles.logoutButton}
+          >
+            <Text style={styles.logoutText}>Wyloguj</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.subheading}>Projekt:</Text>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            onPress={() => setSelectedProject(null)}
+            style={[styles.button, selectedProject === null && styles.buttonSelected]}
+          >
+            <Text style={styles.buttonText}>Wszystkie</Text>
+          </TouchableOpacity>
+          {projects.map((project) => (
+            <TouchableOpacity
+              key={project.id}
+              onPress={() => setSelectedProject(project.id)}
+              style={[styles.button, selectedProject === project.id && styles.buttonSelected]}
+            >
+              <Text style={styles.buttonText}>{project.name}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Edytuj projekty", { userId: user.uid })}
+            style={styles.addProjectButton}
+          >
+            <Text style={styles.addProjectText}>Edytuj</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.headerRow}>
+          <Text style={styles.heading}>Lista zadań</Text>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() =>
+              navigation.navigate("Dodaj zadanie", {
+                newTaskTitle,
+                setNewTaskTitle,
+                dueDate,
+                setDueDate,
+                priority,
+                setPriority,
+                labelsInput,
+                setLabelsInput,
+                selectedProject,
+                setSelectedProject,
+                projects,
+                handleAddTask,
+              })
+            }
+          >
+            <Text style={styles.addButtonText}>➕</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.subheading}>Widok:</Text>
+        <View style={styles.buttonRow}>
+          {["all", "today", "upcoming", "important", "overdue", "done"].map((id) => (
+            <TouchableOpacity
+              key={id}
+              onPress={() => setSelectedView(id)}
+              style={[styles.button, selectedView === id && styles.buttonSelected]}
+            >
+              <Text style={styles.buttonText}>{id.charAt(0).toUpperCase() + id.slice(1)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TaskList tasks={filterTasks(tasks)} getProjectName={getProjectName} />
+      </SafeAreaView>
     </View>
   );
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
-        <Stack.Screen name="Lista zadań" component={MainScreen} />
-        <Stack.Screen name="Dodaj zadanie" component={AddTaskScreen} />
-        <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} />
-        <Stack.Screen name="Edytuj projekty" component={ProjectManagerScreen} />
-        <Stack.Screen name="Statystyki" component={StatsScreen} />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {user ? (
+          <>
+            <Stack.Screen name="Lista zadań" component={MainScreen} />
+            <Stack.Screen name="Dodaj zadanie" component={AddTaskScreen} />
+            <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} />
+            <Stack.Screen name="Edytuj projekty" component={ProjectManagerScreen} initialParams={{ userId: user?.uid }} />
+            <Stack.Screen name="Statystyki" component={StatsScreen} initialParams={{ userId: user?.uid }} />
+          </>
+        ) : (
+          <Stack.Screen name="Auth" component={AuthScreen} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
+
+
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
@@ -253,15 +250,64 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   addProjectButton: {
-  backgroundColor: "#007AFF",
-  paddingHorizontal: 12,
-  paddingVertical: 8,
-  borderRadius: 6,
-  marginLeft: 10,
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginLeft: 10,
   },
   addProjectText: {
     color: "#fff",
     fontWeight: "bold",
   },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    paddingVertical: 6,
+  },
+  topBarIcon: {
+    fontSize: 20,
+    fontWeight: "bold",
+    paddingHorizontal: 10,
+  },
+  topRow: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 15,
+},
+
+statsButton: {
+  width: 32,
+  height: 32,
+  borderRadius: 16,
+  backgroundColor: "#007AFF",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+statsIcon: {
+  color: "#fff",
+  fontSize: 16,
+},
+
+logoutButton: {
+  backgroundColor: "#FF3B30",
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  borderRadius: 6,
+},
+
+logoutText: {
+  color: "#fff",
+  fontWeight: "bold",
+},
+safeArea: {
+  flex: 1,
+  paddingTop: 20, // dzięki temu przyciski są niżej niż pasek systemowy
+  paddingHorizontal: 20,
+},
 
 });
