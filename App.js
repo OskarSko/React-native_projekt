@@ -23,6 +23,9 @@ import StatsScreen from "./screens/StatsScreen";
 import AuthScreen from './screens/AuthScreen';
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./firebase/firebaseConfig";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
+
 
 const Stack = createStackNavigator();
 
@@ -184,6 +187,8 @@ const handleAddTask = async (taskData) => {
       </SafeAreaView>
     </View>
   );
+
+  
 
   return (
     <NavigationContainer>
