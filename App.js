@@ -76,27 +76,41 @@ const handleAddTask = async (taskData) => {
     projects.find((p) => p.id === projectId)?.name || "Nieznany";
 
   const filterTasks = (tasks) => {
-    const today = dayjs().format("YYYY-MM-DD");
-    const in7Days = dayjs().add(7, "day").format("YYYY-MM-DD");
+    const today = dayjs().startOf("day");
+    const in7Days = dayjs().add(7, "day").endOf("day");
     let filtered = tasks;
     if (selectedProject) {
       filtered = filtered.filter((t) => t.projectId === selectedProject);
     }
     switch (selectedView) {
-      case "today":
+      case "Dzisiaj":
         return filtered.filter((t) => t.dueDate === today);
-      case "upcoming":
-        return filtered.filter((t) => t.dueDate > today && t.dueDate <= in7Days && !t.done);
-      case "important":
+      case "Nadchodzące":
+      return filtered.filter((t) => {
+        if (!t.dueDate || t.done) return false;
+        const due = dayjs(t.dueDate);
+        // data po dziś, ale max 7 dni do przodu (włącznie)
+        return due.isAfter(today) && (due.isBefore(in7Days) || due.isSame(in7Days, "day"));
+      });
+      case "Ważne":
         return filtered.filter((t) => t.priority === "wysoki" && !t.done);
-      case "overdue":
-        return filtered.filter((t) => t.dueDate && t.dueDate < today && !t.done);
-      case "done":
+      case "Przterminowane":
+      return filtered.filter((t) => {
+        if (!t.dueDate || t.done) return false;
+        const due = dayjs(t.dueDate);
+        return due.isBefore(today, "day");
+      });
+      case "Wykonane":
         return filtered.filter((t) => t.done);
       default:
         return filtered;
     }
   };
+
+
+
+
+
 
   const MainScreen = ({ navigation }) => (
     <View style={styles.container}>
