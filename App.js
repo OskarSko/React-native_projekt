@@ -172,7 +172,7 @@ const handleAddTask = async (taskData) => {
 
         <Text style={styles.subheading}>Widok:</Text>
         <View style={styles.buttonRow}>
-          {["all", "today", "upcoming", "important", "overdue", "done"].map((id) => (
+          {["Wszystkie", "Dzisiaj", "Nadchodzące", "Ważne", "Przterminowane", "Wykonane"].map((id) => (
             <TouchableOpacity
               key={id}
               onPress={() => setSelectedView(id)}

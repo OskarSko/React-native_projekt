@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Dimensions, ScrollView } from 'react-native';
 import { BarChart, PieChart } from 'react-native-chart-kit';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
-
+import { getAuth } from 'firebase/auth';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -16,14 +16,17 @@ const StatsScreen = () => {
 
   useEffect(() => {
     const fetchTasks = async () => {
+      const user = getAuth().currentUser;
+      if (!user) return;
+
       try {
-        const querySnapshot = await getDocs(collection(db, 'tasks'));
+        const q = query(collection(db, 'tasks'), where('userId', '==', user.uid));
+        const querySnapshot = await getDocs(q);
         const tasks = querySnapshot.docs.map(doc => doc.data());
 
         const weekCounts = [0, 0, 0, 0, 0, 0, 0];
         const labelMap = {};
         let doneCount = 0;
-        let notDoneCount = 0;
 
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -41,9 +44,6 @@ const StatsScreen = () => {
         tasks.forEach(task => {
           if (task.done !== true || !task.createdAt || !task.completedAt) return;
 
-          const createdAt = task.createdAt?.seconds
-            ? new Date(task.createdAt.seconds * 1000)
-            : new Date(task.createdAt);
           const completedAt = task.completedAt?.seconds
             ? new Date(task.completedAt.seconds * 1000)
             : new Date(task.completedAt);
@@ -56,7 +56,7 @@ const StatsScreen = () => {
           const day = (completedAt.getDay() + 6) % 7;
           weekCounts[day]++;
 
-          if (task.labels && Array.isArray(task.labels)) {
+          if (Array.isArray(task.labels)) {
             task.labels.forEach(label => {
               labelMap[label] = (labelMap[label] || 0) + 1;
             });
@@ -82,9 +82,8 @@ const StatsScreen = () => {
           }
         ]);
 
-        // trend (bez „Jeszcze nic nie zrobiłeś”)
         if (previousWeekDone === 0 && currentWeekDone > 0) {
-          setTrendText("📈 Zaczynasz działać! (0 → " + currentWeekDone + ")");
+          setTrendText(`📈 Zaczynasz działać! (0 → ${currentWeekDone})`);
         } else if (previousWeekDone > 0) {
           const change = ((currentWeekDone - previousWeekDone) / previousWeekDone) * 100;
           if (change > 0) {
@@ -95,7 +94,7 @@ const StatsScreen = () => {
             setTrendText("📊 Stabilnie – tyle samo zadań co ostatnio.");
           }
         } else {
-          setTrendText(""); // brak trendu do pokazania
+          setTrendText("");
         }
 
         const max = Math.max(...weekCounts);
@@ -150,7 +149,7 @@ const StatsScreen = () => {
         data={pieData}
         width={screenWidth - 40}
         height={200}
-        chartConfig={{ color: () => `#000` }}
+        chartConfig={{ color: () => "#000" }}
         accessor="count"
         backgroundColor="transparent"
         paddingLeft="15"
@@ -162,7 +161,7 @@ const StatsScreen = () => {
         data={labelsSummary}
         width={screenWidth - 40}
         height={200}
-        chartConfig={{ color: () => `#000` }}
+        chartConfig={{ color: () => "#000" }}
         accessor="count"
         backgroundColor="transparent"
         paddingLeft="15"
